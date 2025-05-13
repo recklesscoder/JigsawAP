@@ -1407,7 +1407,12 @@ let tmpImage;
 function loadImageFunction(){
     puzzle.container.innerHTML = ""; // forget contents
     tmpImage = document.createElement("img");
-    tmpImage.src = puzzle.srcImage.src;
+    if (location.search.match(/[?&]nopreview([?&=]|$)/i)) {
+        tmpImage.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeAAAAFoAQAAAACnTBWNAAABJklEQVR4Ae3RAUZEQRzH8XnCAAMgjJ0rRDAY7VU6wiRYbG+uETpIgAc6RTRBABYw8Uz9Z1e1SzQrKL6fH/wfvjxGAQAAAAAAAAAAAAAAAAAA/BHDtHetZT3S5jCu6Zi4fBNbWQ9r1QEv3/2x+VW8DDqPzk36eU4tlutRlm9yTzy60mL3+hG7WVbSpiPWLyFYO0whXNoWy7WWhYX/OV7oB29b7O2VxMtZriCztiMOWkVj/DBFc323i6OVmY7YFa1SbXGq57fb397GqfbEucU6buP7I2OrtIqqxVFdlK84qs7Yq5M8TP4zXoVV8L1xMC0Oxsa9pzIdccppdnWYltXVFtck15usjmNXrEuLdTk928X6SVYk/scAAAAAAAAAAAAAAAAAAADeAdgafMtHB9XYAAAAAElFTkSuQmCC";
+    }
+    else {
+        tmpImage.src = puzzle.srcImage.src;
+    }
     // console.log(puzzle.srcImage.src)
     puzzle.getContainerSize();
     fitImage(tmpImage, puzzle.contWidth * 0.90, puzzle.contHeight * 0.90);

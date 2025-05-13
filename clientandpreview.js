@@ -85,7 +85,13 @@ function restoreDiv2() {
 document.getElementById('control-btn1').addEventListener('click', minimizeDiv1);
 document.getElementById('taskbar1').addEventListener('click', restoreDiv1);
 document.getElementById('control-btn2a').addEventListener('click', minimizeDiv2);
-document.getElementById('taskbar2').addEventListener('click', restoreDiv2);
+if (location.search.match(/[?&]nopreview/i)) {
+    taskbar2.style.filter = 'grayscale(1)';
+    taskbar2.style.display = 'none';
+}
+else {
+    taskbar2.addEventListener('click', restoreDiv2);
+}
 
 
 // const resizerRight1 = document.getElementById('resizerRight1');

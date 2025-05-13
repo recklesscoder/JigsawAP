@@ -143,7 +143,9 @@ function pressed_solo(){
     document.getElementById("m6").innerText = apstatus;
 
     // document.getElementById('taskbar1').style.display = "flex";
-    document.getElementById('taskbar2').style.display = "flex";
+    if (!location.search.match(/[?&]nopreview([?&=]|$)/i)) {
+        document.getElementById('taskbar2').style.display = "flex";
+    }
 
     
     const messages = [
@@ -398,7 +400,9 @@ const connectedListener = (packet) => {
 
     
     document.getElementById('taskbar1').style.display = "flex";
-    document.getElementById('taskbar2').style.display = "flex";
+    if (!location.search.match(/[?&]nopreview([?&=]|$)/i)) {
+        document.getElementById('taskbar2').style.display = "flex";
+    }
 
 
     
