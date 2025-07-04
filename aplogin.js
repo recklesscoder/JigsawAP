@@ -29,6 +29,13 @@ document.getElementById("optionsbutton").addEventListener("click", () => {
     window.open('options.html', '_blank');
 });
 
+document.getElementById('name').addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent the default form submission
+        document.getElementById('loginbutton').click(); // Click the login button
+    }
+});
+
 function isMobile() {
     return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 }
@@ -40,21 +47,20 @@ function toggleFullscreen() {
         } else if (document.documentElement.webkitRequestFullscreen) { 
             document.documentElement.webkitRequestFullscreen(); // Safari
         }
-        document.getElementById('m11').textContent = 'Exit full screen';
     } else {
         if (document.exitFullscreen) {
             document.exitFullscreen();
         } else if (document.webkitExitFullscreen) { 
             document.webkitExitFullscreen(); // Safari
         }
-        document.getElementById('m11').textContent = 'Go full screen';
     }
 }
 
 // Show the fullscreen button only on mobile devices
 window.addEventListener('load', () => {
     if (isMobile()) {
-        document.getElementById('m11').style.display = 'block';
+        document.getElementById('m11').style.display = 'inline-block';
+        document.getElementById('m11a').style.display = 'inline-block';
         setTimeout(() => window.scrollTo(0, 1), 100); // URL bar hiding trick
     }
 });
@@ -77,6 +83,7 @@ function pressed_solo(){
 
     window.actual_possible_merges = [0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 6, 8, 10, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23]
 
+    window.fake_pieces_mimic = []
 
     closeMenus();
 
@@ -146,6 +153,7 @@ function pressed_solo(){
     if (!location.search.match(/[?&]nopreview([?&=]|$)/i)) {
         document.getElementById('taskbar2').style.display = "flex";
     }
+    document.getElementById('taskbar3').style.display = "flex";
 
     
     const messages = [
@@ -215,9 +223,10 @@ function connectToServer(firsttime = true) {
     client.socket.on("bounced", bouncedListener);
     
     client.messages.on("message", jsonListener);
+    client.deathLink.on("deathReceived", deathListener)
     
     client
-    .login(connectionInfo.hostport, connectionInfo.name, connectionInfo.game, {password: connectionInfo.password})
+    .login(connectionInfo.hostport, connectionInfo.name, connectionInfo.game, {password: connectionInfo.password, tags: ["DeathLink"]})
         .then(() => {
             console.log("Connected to the server");
             document.getElementById('loginbutton').value = "Connected to the server";
@@ -247,15 +256,20 @@ const receiveditemsListener = (items, index) => {
 };
 
 let puzzlePieceOrder = [];
+let receive_death_link = false;
 
 const connectedListener = (packet) => {
     apstatus = "AP: Connected";
 
     window.apseed = packet.slot_data.seed_name;
     window.slot = packet.slot;
-    window.fake_pieces_mimic = packet.slot_data.fake_pieces_mimic;
+    if(packet.slot_data.fake_pieces_mimic){
+        window.fake_pieces_mimic = packet.slot_data.fake_pieces_mimic;
+    }else{
+        window.fake_pieces_mimic = [];
+    }
 
-    let apworld = packet.slot_data.ap_world_version
+    let apworld = packet.slot_data.ap_world_version_2 ? packet.slot_data.ap_world_version_2 : packet.slot_data.ap_world_version;
     window.apworld = apworld;
     if(!apworld || ["0.0.0", "0.0.1", "0.0.2", "0.0.3", "0.0.4", "0.1.0", "0.1.1"].includes(apworld)){
         if(!localStorage.getItem("referredTo011")){
@@ -285,9 +299,21 @@ const connectedListener = (packet) => {
             localStorage.setItem("referredTo060", true);
         }
     }
+    if(["0.6.2"].includes(apworld)){
+        if(!localStorage.getItem("referredTo062")){
+            alert("There was a small bug with piece order type, new apworld version is out. But this version still plays fine :3")
+            localStorage.setItem("referredTo062", true);
+        }
+    }
+    if(["0.6.3", "0.6.4", "0.6.5"].includes(apworld)){
+        if(!localStorage.getItem("referredTo063")){
+            alert("There is a newer apworld. Traps are off by default and there are now also Swap and Rotation traps! But this version still works :3")
+            localStorage.setItem("referredTo063", true);
+        }
+    }
     
 
-    console.log("This apworld version should work", packet.slot_data.ap_world_version)
+    console.log("This apworld version should work", packet.slot_data.ap_world_version, packet.slot_data.ap_world_version_2)
     
 
     document.getElementById("m6").innerText = apstatus;
@@ -302,9 +328,7 @@ const connectedListener = (packet) => {
     if (packet.slot_data.enable_clues !== undefined) {
         window.show_clue = packet.slot_data.enable_clues === 1;
     }
-    if (packet.slot_data.fake_pieces !== undefined) {
-        window.fake_pieces = packet.slot_data.fake_pieces;
-    }
+
     if (packet.slot_data.rotations){
         window.rotations = packet.slot_data.rotations;
         if(window.rotations > 0){
@@ -317,6 +341,15 @@ const connectedListener = (packet) => {
     window.possible_merges = packet.slot_data.possible_merges;
     window.actual_possible_merges = packet.slot_data.actual_possible_merges;
 
+    receive_death_link = 0
+    if(packet.slot_data.death_link){
+        receive_death_link = packet.slot_data.death_link;
+    }
+    if(receive_death_link > 0){
+        console.log("Receive death link (yes):", receive_death_link);
+    }else{
+        console.log("no death link");
+    }
     let imagePath = "https://images.pexels.com/photos/147411/italy-mountains-dawn-daybreak-147411.jpeg";
 
     if(packet.slot_data.orientation < 1){
@@ -403,6 +436,7 @@ const connectedListener = (packet) => {
     if (!location.search.match(/[?&]nopreview([?&=]|$)/i)) {
         document.getElementById('taskbar2').style.display = "flex";
     }
+    document.getElementById('taskbar3').style.display = "flex";
 
 
     
@@ -446,8 +480,13 @@ function setImage(url){
 
 const bouncedListener = (packet) => {
     if(packet){
-        if(packet.data){
-            window.move_piece_bounced(packet.data);
+        if (packet.data) {
+            console.log(packet.data);
+            if (typeof packet.data[0] === "number") {
+                window.move_piece_bounced(packet.data);
+            }else{
+                gotRandomNumber(packet.data[1]);
+            }
         }
     }
 }
@@ -483,34 +522,42 @@ function openItems(items){
     console.log(items)
     let itemUnlocked = false;
     for (let i = 0; i < items.length; i++) {
-        if(items[i] == "1 Fake Puzzle Piece"){
-            window.unlockFakePiece();
-            itemUnlocked = true;
-        }else{
-            let number_of_pieces = 0;
+        // Normalize "Puzzle Piece" to "1 Puzzle Piece"
+        if (items[i] === "Puzzle Piece") {
+            items[i] = "1 Puzzle Piece";
+        }
+        if (items[i] === "Rotate Trap") {
+            items[i] = "1 Rotate Trap";
+        }
+        if (items[i] === "Swap Trap") {
+            items[i] = "1 Swap Trap";
+        }
 
-            if(items[i] == "Puzzle Piece" || items[i] == "1 Puzzle Piece"){
-                number_of_pieces = 1;
-            }else{
-                const match = items[i].match(/^(\d+)\s+Puzzle Pieces?$/);
-                if(match){
-                    number_of_pieces = parseInt(match[1], 10);
-                }
-            }
-            if (number_of_pieces > 0) {
-                
-
-                for(let c = 0; c < number_of_pieces; c++){
-                    if(puzzlePieceOrder){
+        // Handle plural and singular forms for Puzzle Piece, Fake Puzzle Piece, Rotate Trap, Swap Trap
+        // Patterns: "{i} Puzzle Piece(s)", "{i} Fake Puzzle Piece(s)", "{i} Rotate Trap(s)", "{i} Swap Trap(s)"
+        let match = items[i].match(/^(\d+)\s+(Puzzle Piece|Fake Puzzle Piece|Rotate Trap|Swap Trap)s?$/);
+        if (match) {
+            const count = parseInt(match[1], 10);
+            const type = match[2];
+            for (let n = 0; n < count; n++) {
+                if (type === "Puzzle Piece") {
+                    if (puzzlePieceOrder) {
                         let piece = puzzlePieceOrder.shift();
-                        // console.log("Unlocking piece", piece);
                         if (piece !== undefined) {
-                            window.unlockPiece(piece, c == number_of_pieces - 1);
+                            window.unlockPiece(piece, n === count - 1);
                             itemUnlocked = true;
                         }
                     }
+                } else if (type === "Fake Puzzle Piece") {
+                    window.unlockFakePiece();
+                    itemUnlocked = true;
+                } else if (type === "Rotate Trap") {
+                    window.doRotateTrap();
+                } else if (type === "Swap Trap") {
+                    window.doSwapTrap();
                 }
             }
+            continue;
         }
     }
     if(itemUnlocked){
@@ -714,6 +761,52 @@ function jsonListener(text, nodes) {
 }
 window.jsonListener = jsonListener;
 
+let lastrandomnumber = null;
+function deathListener(source, time, cause){
+    if (receive_death_link > 0) {
+        // Only continue this code once every 60 seconds
+        if (!window.lastDeathLinkTime || Date.now() - window.lastDeathLinkTime > 60000) {
+            window.lastDeathLinkTime = Date.now();
+            lastrandomnumber = Math.random() * 4;
+            console.log("my death link random number is", lastrandomnumber);
+            setTimeout(() => {
+                if (lastrandomnumber === null) {
+                    return;
+                }
+                sendBounceDeathLinkRandomNumber(lastrandomnumber);
+            }, lastrandomnumber * 1000);
+        } else {
+            console.log("Death link ignored: cooldown active.");
+        }
+    }
+}
+
+function sendBounceDeathLinkRandomNumber(number){
+    client.bounce({ "slots": [window.slot] }, ["death", number ]);
+    setTimeout(() => {
+        applyDeathLink();
+    }, 1000);
+}
+
+function applyDeathLink(){
+    if(lastrandomnumber !== null){
+        console.log("I sent a trap!")
+        for (let i = 0; i < receive_death_link; i++) {
+            window.doRotateTrap();
+            window.doSwapTrap();
+        }
+        lastrandomnumber = null;
+    }
+}
+
+function gotRandomNumber(number){
+    if(lastrandomnumber !== null){
+        if(number < lastrandomnumber){
+            lastrandomnumber = null;
+        }
+    }
+}
+
 const shapeParam = getUrlParameter("shape");
 if (shapeParam) {
     const shapeSelect = document.getElementById("shape");
@@ -737,4 +830,4 @@ function sendText(message){
 }
 window.sendText = sendText;
 
-console.log("0.6.2")
+console.log("0.7.0")

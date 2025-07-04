@@ -14,6 +14,36 @@ if (bevel_size === null) bevel_size = 0.1;
 var shadow_size = localStorage.getItem("option_shadow_2");
 if (shadow_size === null) shadow_size = 0;
 
+// Set starting values from localStorage or defaults
+document.addEventListener('DOMContentLoaded', function() {
+    const borderSelect = document.getElementById('options_bt');
+    const shadowSelect = document.getElementById('options_st');
+
+    // Load from localStorage or use default
+    function formatValue(val, def) {
+        val = parseFloat(localStorage.getItem(val));
+        if (isNaN(val)) val = def;
+        return (val % 1 === 0) ? val.toString() : val.toFixed(1);
+    }
+    borderSelect.value = formatValue('option_bevel_2', 0.1);
+    shadowSelect.value = formatValue('option_shadow_2', 0);
+
+    // Save to localStorage on change
+    borderSelect.addEventListener('change', function() {
+        localStorage.setItem('option_bevel_2', borderSelect.value);
+    });
+    shadowSelect.addEventListener('change', function() {
+        localStorage.setItem('option_shadow_2', shadowSelect.value);
+    });
+});
+
+let allow_zoom = true;
+const zoomBtn = document.getElementById('m11a');
+zoomBtn.addEventListener('click', function() {
+    allow_zoom = !allow_zoom;
+    zoomBtn.innerHTML = allow_zoom ? '🔍✅' : '🔍❌';
+});
+
 
 window.save_loaded = false;
 window.ignore_bounce_pieces = [];
@@ -385,6 +415,9 @@ class PolyPiece {
         this.puzzle = puzzle;
         this.listLoops();
         this.hinted = false;
+        this.hasMovedEver = false;
+        this.unlocked = false;
+        this.withdrawn = false;
         this.rot = 0;
 
         this.polypiece_canvas = document.createElement('CANVAS');
@@ -495,6 +528,7 @@ class PolyPiece {
             orgcx - (this.nx-1) * this.puzzle.scalex / 2 - r.x,
             orgcy - (this.ny-1) * this.puzzle.scaley / 2 - r.y
         );
+        this.hasMovedEver = true;
 
 
 
@@ -791,13 +825,10 @@ class PolyPiece {
 
                     this.polypiece_ctx.clip(path);
                     
-
-                    
-
                     let embth = puzzle.scalex * 0.01 * bevel_size * window.scaleFactor * window.additional_zoom;
-                    if(this.hinted){
-                        embth = puzzle.scalex * 0.01 * window.scaleFactor * window.additional_zoom;
-                    }
+                    // if(this.hinted){
+                    //     embth = puzzle.scalex * 0.01 * window.scaleFactor * window.additional_zoom;
+                    // }
                     
 
                     this.polypiece_ctx.translate(embth / 2, -embth / 2);
@@ -827,8 +858,8 @@ class PolyPiece {
         
         // Draw a red outline
         if(this.hinted){
-            this.polypiece_ctx.strokeStyle = "red";
-            this.polypiece_ctx.lineWidth = Math.max(.02 * puzzle.scalex, 5);
+            this.polypiece_ctx.strokeStyle = hint_color;
+            this.polypiece_ctx.lineWidth = Math.max(.03 * puzzle.scalex, 7);
             this.polypiece_ctx.stroke(this.path);
         }
 
@@ -1017,8 +1048,8 @@ class Puzzle {
     }
 
     //- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    puzzle_create(coordinates, groups) {
-        console.log(coordinates, groups)
+    puzzle_create(coordinates, groups, hasmoved, unlocked) {
+        console.log(coordinates, groups, hasmoved, unlocked)
 
         // Set the seed of Math.random to window.apseed
         if(window.apseed){
@@ -1071,6 +1102,8 @@ class Puzzle {
                 }
             }
             let ppp = new PolyPiece(pieces_in_group, this);
+            ppp.hasMovedEver = hasmoved[key];
+            ppp.unlocked = unlocked[key];
             ppp.moveTo(coordinates[key][0] * puzzle.contWidth, coordinates[key][1] * puzzle.contHeight)
             if(coordinates[key][2]){
                 ppp.rotate(null, coordinates[key][2]);
@@ -1205,30 +1238,22 @@ class Puzzle {
             } // for kx
         } // for ky
 
-        if(window.fake_pieces == 1){
-            // let mimic_piece_x = intAlea(1, nx-1);
-            // window.fake_pieces_mimic = [12, 85];
-            let mimic_piece_x = (window.fake_pieces_mimic[0]-1) % nx;
-            let mimic_piece_y = Math.floor((window.fake_pieces_mimic[0]-1) / nx);
-
+        if(window.fake_pieces_mimic.length >= 1){
             this.pieces[-1] = [];
-            this.pieces[-1][1] = np = new Piece(mimic_piece_x, mimic_piece_y, -1);
 
-            // top side
-            np.ts = this.pieces[mimic_piece_y][mimic_piece_x].ts;
-            np.ls = this.pieces[mimic_piece_y][mimic_piece_x].ls;
-            np.bs = this.pieces[mimic_piece_y][mimic_piece_x].bs;
-            np.rs = this.pieces[mimic_piece_y][mimic_piece_x].rs;
+            for(let i = 0; i < window.fake_pieces_mimic.length; i++){
+                let mimic_piece_x = (window.fake_pieces_mimic[i]-1) % nx;
+                let mimic_piece_y = Math.floor((window.fake_pieces_mimic[i]-1) / nx);
 
+                this.pieces[-1][i+1] = np = new Piece(mimic_piece_x, mimic_piece_y, -i - 1);
 
-            mimic_piece_x = (window.fake_pieces_mimic[1]-1) % nx;
-            mimic_piece_y = Math.floor((window.fake_pieces_mimic[1]-1) / nx);
-
-            this.pieces[-1][2] = np = new Piece(mimic_piece_x, mimic_piece_y, -2);
-            np.ts = this.pieces[mimic_piece_y][mimic_piece_x].ts;
-            np.ls = this.pieces[mimic_piece_y][mimic_piece_x].ls;
-            np.bs = this.pieces[mimic_piece_y][mimic_piece_x].bs;
-            np.rs = this.pieces[mimic_piece_y][mimic_piece_x].rs;
+                // top side
+                np.ts = this.pieces[mimic_piece_y][mimic_piece_x].ts;
+                np.ls = this.pieces[mimic_piece_y][mimic_piece_x].ls;
+                np.bs = this.pieces[mimic_piece_y][mimic_piece_x].bs;
+                np.rs = this.pieces[mimic_piece_y][mimic_piece_x].rs;
+                
+            }
         }
 
     } // Puzzle.defineShapes
@@ -1506,6 +1531,12 @@ let moving; // for information about moved piece
                 if ((event && event.event == "nbpieces") || (window.LoginStart && window.is_connected)) {
                     document.getElementById("m4").textContent = "Loading pieces...";
 
+                    bevel_size = localStorage.getItem("option_bevel_2");
+                    if (bevel_size === null) bevel_size = 0.1;
+
+                    shadow_size = localStorage.getItem("option_shadow_2");
+                    if (shadow_size === null) shadow_size = 0;
+
                     state = 17;
                     if(window.is_connected){
                         if(window.apworld == "0.2.0" || window.apworld == "0.3.0"){
@@ -1565,9 +1596,10 @@ let moving; // for information about moved piece
                         for (let p = 1; p <= apnx * apny; p++) {
                             keys.push(`JIG_PROG_${window.slot}_${p}`);
                         }
-                        if(window.fake_pieces == 1){
-                            keys.push(`JIG_PROG_${window.slot}_${-1}`);
-                            keys.push(`JIG_PROG_${window.slot}_${-2}`);
+                        if(window.fake_pieces_mimic.length >= 1){
+                            for (let p = 1; p <= window.fake_pieces_mimic.length; p++) {
+                                keys.push(`JIG_PROG_${window.slot}_${-p}`);
+                            }
                         }
 
                         let client = window.getAPClient();                  
@@ -1600,7 +1632,7 @@ let moving; // for information about moved piece
                                         numberOfMergesAtStart = parseInt(value);
                                     }else {
                                         let pp_index = parseInt(spl);
-                                        window.save_file[pp_index] = value;
+                                        window.save_file[pp_index] = [value, true];
                                     }
                                 }
                             }
@@ -1618,7 +1650,7 @@ let moving; // for information about moved piece
                             }
                             window.save_file[index] = 
                             [
-                                ((index+10) * 4321.1234) % 0.10, ((index+10) * 1234.4321) % 0.5, random_rotation
+                                [((index+1000) * 4321.1234) % 0.10, ((index+1000) * 1234.4321) % 0.5, random_rotation], false
                             ];
                         }
                     });
@@ -1633,7 +1665,7 @@ let moving; // for information about moved piece
                             }
                             window.save_file[index] = 
                             [
-                                ((index+10) * 4321.1234) % 0.10, ((index+10) * 1234.4321) % 0.5, random_rotation
+                                [((index+1000) * 4321.1234) % 0.10, ((index+1000) * 1234.4321) % 0.5, random_rotation], false
                             ];
                         }
                     });
@@ -1658,30 +1690,39 @@ let moving; // for information about moved piece
             case 19:  // process save file and start game
                 let coordinates = {}
                 let groups = {}
+                let hasmoved = {}
+                let unlocked = {}
 
                 let all_indices = []
 
                 for (let key = 1; key <= window.apnx * window.apny; key++) {
                     all_indices.push(key);
                 }
-                if(window.fake_pieces == 1){
-                    all_indices.push(-1);
-                    all_indices.push(-2);
+                if(window.fake_pieces_mimic.length >= 1){
+                    for(let i = 0; i < window.fake_pieces_mimic.length; i++){
+                        all_indices.push(-1 - i);
+                    }
                 }
 
                 for (let [key, value] of Object.entries(window.save_file)) {
                     all_indices = all_indices.filter(index => index !== parseInt(key));
 
-                    if (Array.isArray(value)) {
-                        coordinates[key] = value;
+                    if (Array.isArray(value[0])) {
+                        coordinates[key] = value[0];
+                        hasmoved[key] = value[1];
                         groups[key] = [parseInt(key)];
+                        unlocked[key] = true;
                     } else {
-                        let refer_to = value;
+                        let refer_to = value[0];
                         let groupKey = Object.keys(groups).find(groupKey => groups[groupKey].includes(refer_to));
+                        // console.log(key, refer_to)
                         if (groupKey) {
                             groups[groupKey].push(parseInt(key));
                         } else {
-                            console.log(refer_to, "not found")
+                            console.log(key, refer_to, "not found, gonna go ahead and put it at 0,0")
+                            coordinates[key] = [0,0];
+                            groups[key] = [parseInt(key)];
+                            unlocked[key] = true;
                         }
                     }
                 }
@@ -1689,6 +1730,8 @@ let moving; // for information about moved piece
                 for(let key of all_indices){
                     groups[key] = [key];
                     coordinates[key] = [30,30];
+                    hasmoved[key] = false;
+                    unlocked[key] = false;
                 }
 
                 console.log("STARTING GAME")
@@ -1700,11 +1743,11 @@ let moving; // for information about moved piece
                 document.getElementById("m3").style.display = "none";
                 document.getElementById("m4").style.display = "none";
                 document.getElementById("m5").style.display = "none";
-                document.getElementById("m5a").style.display = "none";
                 document.getElementById("m10b").style.display = "none";
+                document.getElementById("o1a").style.display = "none";
 
                 /* prepare puzzle */
-                puzzle.puzzle_create(coordinates, groups); // create shape of pieces, independant of size
+                puzzle.puzzle_create(coordinates, groups, hasmoved, unlocked); // create shape of pieces, independant of size
 
 
 
@@ -1864,6 +1907,7 @@ let moving; // for information about moved piece
                         
                         moving.pp.moveTo(to_x, to_y);
                         moving.pp.moveAwayFromBorder();
+                        moving.pp.hasMovedEver = true;
                         if (window.gameplayStarted && !window.play_solo) {
                             // console.log("move piece", moving.pp.pieces[0].index, moving.pp);                 
                             if(window.rotations == 0){
@@ -1957,11 +2001,11 @@ let menu = (function () {
         document.getElementById("m3").style.display = "block"
         document.getElementById("m4").style.display = "block"
         document.getElementById("m5").style.display = "block"
-        document.getElementById("m5a").style.display = "block"
         document.getElementById("m10b").style.display = "block"
     }
     document.getElementById("m6").style.display = "block"
-    document.getElementById("m11").style.display = "block"
+    document.getElementById("m11").style.display = "inline-block"
+    document.getElementById("m11a").style.display = "inline-block"
     if(gameStarted){
         document.getElementById("m9a").style.display = "block"
         document.getElementById("m9").style.display = "block"
@@ -1969,7 +2013,9 @@ let menu = (function () {
 
         console.log(window.show_clue)
         if(window.show_clue){
-            document.getElementById("m13").style.display = "block"
+            document.getElementById("m13").style.display = "inline-block"
+            document.getElementById("m13b").style.display = "inline-block"
+            document.getElementById("m13c").style.display = "inline-block"
         }
     }
     menu.opened = true;
@@ -1995,12 +2041,25 @@ document.getElementById("m4").addEventListener("click", () => events.push({ even
 document.getElementById("m5").addEventListener("click", () => {
     window.open('credits.html', '_blank');
 });
-document.getElementById("m5a").addEventListener("click", () => {
-    window.open('options.html', '_blank');
-});
 
 document.getElementById("m13").addEventListener("click", () => {  
     askForHint(false);
+});
+let hint_color = "red";
+document.getElementById("m13b").addEventListener("click", () => {  
+    if(hint_color == "red"){
+        hint_color = "green";
+        document.getElementById("m13b").style.backgroundColor = "#00ff00";
+    }else if(hint_color == "green"){
+        hint_color = "blue";
+        document.getElementById("m13b").style.backgroundColor = "#0000ff";
+    }else{
+        hint_color = "red";
+        document.getElementById("m13b").style.backgroundColor = "#ff0000";
+    }
+});
+document.getElementById("m13c").addEventListener("click", () => {  
+    removeAllHints();
 });
 
 
@@ -2013,8 +2072,8 @@ document.getElementById("m10b").addEventListener("click", () => {
     forPuzzleElement.style.backgroundColor = newColor;
     localStorage.setItem("backgroundColor", newColor);
 
-    const jsonList = [{ type: "text", text: "Example text with new background" }];
-    window.jsonListener("", jsonList);
+    // const jsonList = [{ type: "text", text: "Example text with new background" }];
+    // window.jsonListener("", jsonList);
 });
 
 // Set the initial background color from localStorage if available
@@ -2077,6 +2136,9 @@ forPuzzle.addEventListener('wheel', (event) => {
     if(moving){
         rotateCurrentPiece(event.deltaY < 0);
     }else{
+        if(!allow_zoom){
+            return;
+        }
         event.preventDefault();
         if (event.deltaY < 0) {
             if(zoomP == 1){
@@ -2107,6 +2169,9 @@ forPuzzle.addEventListener('touchend', (event) => {
     const tapLength = currentTime - lastTap;
     if (tapLength < 300 && tapLength > 0) {
         event.preventDefault();
+        if(!allow_zoom){
+            return;
+        }
         const co = puzzle.relativeMouseCoordinates(event.changedTouches[0]);
         if (window.additional_zoom === 1) {
             zoomX = -co.p_x + 1/2;
@@ -2183,6 +2248,7 @@ function unlockPiece(index) {
             random_rotation = Math.floor(2 * Math.floor(((index+10) * 2345.1234) % 2));
         }
         pp.rotateTo(random_rotation);
+        pp.unlocked = true;
     }else if (accept_pending_actions){
         console.log("Adding to pending actions", index)
         pending_actions.push([`x_x_x_${index}`, "unlock", "x"]);
@@ -2191,6 +2257,10 @@ function unlockPiece(index) {
 
 var unlocked_fake_pieces = [];
 function unlockFakePiece() {
+    if(unlocked_fake_pieces.length >= window.fake_pieces_mimic.length){
+        console.log("No more fake pieces to unlock!");
+        return;
+    }
     let index = - unlocked_fake_pieces.length - 1;
     unlocked_fake_pieces.push(index);
     console.log("unlock fake piece", index)
@@ -2209,12 +2279,73 @@ function unlockFakePiece() {
             random_rotation = Math.floor(2 * Math.floor(((index+10) * 23345.1234) % 2));
         }
         pp.rotateTo(random_rotation);
+        pp.unlocked = true;
     }else if (accept_pending_actions){
         console.log("Adding to pending actions", index)
         pending_actions.push([`x_x_x_${index}`, "unlock", "x"]);
         console.log(pending_actions)
     }
     console.log(puzzle.polyPieces)
+}
+
+function doSwapTrap(){
+    let pps = getRandomPiece(2, 10);
+    if(pps.length < 2) return;
+    let pp1 = pps[0];
+    let pp2 = pps[1];
+    let x1 = pp1.x;
+    let y1 = pp1.y;
+    let x2 = pp2.x;
+    let y2 = pp2.y;
+    pp1.moveTo(x2, y2);
+    pp2.moveTo(x1, y1);
+    pp1.moveAwayFromBorder();
+    pp2.moveAwayFromBorder();
+    if(window.rotations == 0){
+        change_savedata_datastorage(pp1.pieces[0].index, [pp1.x / puzzle.contWidth, pp1.y / puzzle.contHeight], true);
+        change_savedata_datastorage(pp2.pieces[0].index, [pp2.x / puzzle.contWidth, pp2.y / puzzle.contHeight], true);
+    }else{
+        change_savedata_datastorage(pp1.pieces[0].index, [pp1.x / puzzle.contWidth, pp1.y / puzzle.contHeight, pp1.rot], true);
+        change_savedata_datastorage(pp2.pieces[0].index, [pp2.x / puzzle.contWidth, pp2.y / puzzle.contHeight, pp2.rot], true);
+    }   
+}
+function doRotateTrap(){
+    let pps = getRandomPiece(1, 10);
+    if(pps.length < 1) return;
+    let pp = pps[0];
+    if(window.rotations > 0){
+        if(window.rotations == 180){
+            pp.rotate(false, 2);
+        }
+        if(window.rotations == 90){
+            if(Math.random() < 0.333){
+                pp.rotate(false, -1);
+            }else if (Math.random() < 0.5){
+                pp.rotate(false, 1);
+            }else{
+                pp.rotate(false, 2);
+            }
+        }
+        pp.moveAwayFromBorder();
+        if(window.rotations == 0){
+            change_savedata_datastorage(pp.pieces[0].index, [pp.x / puzzle.contWidth, pp.y / puzzle.contHeight], true);
+        }else{
+            change_savedata_datastorage(pp.pieces[0].index, [pp.x / puzzle.contWidth, pp.y / puzzle.contHeight, pp.rot], true);
+        }  
+    }
+     
+}
+
+function getRandomPiece(numberOfPieces, maxcluster) {
+
+    // Get all PolyPieces that have only one piece (i.e., not merged)
+    if(!puzzle || !puzzle.polyPieces) return [];
+    const singlePieces = puzzle.polyPieces.filter(pp => pp.pieces.length <= maxcluster);
+    const singleUnlockedPieces = singlePieces.filter(pp => pp.unlocked);
+    // Shuffle the array
+    const shuffled = singleUnlockedPieces.sort(() => Math.random() - 0.5);
+    // Return up to numberOfPieces PolyPieces
+    return shuffled.slice(0, numberOfPieces);
 }
 
 function updateMergesLabels(){
@@ -2224,7 +2355,9 @@ function updateMergesLabels(){
 
 window.unlockPiece = unlockPiece;
 window.unlockFakePiece = unlockFakePiece;
-window.updateMergesLabels = updateMergesLabels
+window.updateMergesLabels = updateMergesLabels;
+window.doSwapTrap = doSwapTrap;
+window.doRotateTrap = doRotateTrap;
 
 var mergedKeys = [];
 
@@ -2312,7 +2445,7 @@ async function change_savedata_datastorage(key, value, final) {
             client.bounce({"slots": [window.slot]}, [key, value]);
             window.bounceTimeout = setTimeout(() => {
                 window.bounceTimeout = null;
-            }, 50);
+            }, 1000);
         }
     }
 }
@@ -2365,6 +2498,7 @@ function do_action(key, value, oldValue, bounce){
                     // console.log("moving because of action", key, value, bounce);
                     pp.moveTo(x * puzzle.contWidth, y * puzzle.contHeight);
                     pp.rotateTo(r);
+                    pp.hasMovedEver = true;
                 }
             }
         } else { // value is an int
@@ -2387,6 +2521,16 @@ function do_action(key, value, oldValue, bounce){
     }
 }
 
+function removeAllHints(){
+    puzzle.polyPieces.forEach(pp => {
+        if(pp.hinted){
+            pp.hinted = false;
+            pp.polypiece_drawImage(false);
+            // pp.polypiece_canvas.classList.remove('hinted')
+        }
+    });
+}
+
 function askForHint(alsoConnect = false){
     if(!window.play_solo && !window.is_connected) return;
     const shuffledIndices = [...Array(puzzle.polyPieces.length).keys()].sort(() => Math.random() - 0.5);
@@ -2398,10 +2542,13 @@ function askForHint(alsoConnect = false){
             let pp1 = puzzle.polyPieces[k];
             let pp2 = puzzle.polyPieces[l];
             if (pp1 == pp2) continue; // don't match with myself
-            if (!unlocked_pieces.includes(pp1.pieces[0].index)) continue;
-            if (!unlocked_pieces.includes(pp2.pieces[0].index)) continue;
+            if (!pp1.unlocked) continue;
+            if (!pp2.unlocked) continue;
+            if (pp1.pieces[0].index < 0) continue;
+            if (pp2.pieces[0].index < 0) continue;
             
             if (pp1.ifNear(pp2, true, true)) { // a match !
+                console.log("MATCH FOUND!", pp1, pp2);
                 if(!alsoConnect){
                     if(!pp1.hinted){
                         pp1.hinted = true;
@@ -2430,13 +2577,12 @@ function askForHint(alsoConnect = false){
             }
         }
     } // for k
-    document.getElementById("m13").textContent = "That's it... 🧩";
+    document.getElementById("m13").textContent = "That's it💡";
     setTimeout(() => {
-        document.getElementById("m13").textContent = "Clue 💡✏️🧩";
+        document.getElementById("m13").textContent = "Clue 💡✏️";
     }, 2000);
 }
 
-window.debug = localStorage.getItem("debug") == "yes";
 
 function rotateCurrentPiece(counter = false){
     if(!moving || typeof moving === 'undefined'){
@@ -2459,9 +2605,9 @@ function rotateCurrentPiece(counter = false){
                 moving.pp.rotate(moving);
             }
         }
+        change_savedata_datastorage(moving.pp.pieces[0].index, [moving.pp.x / puzzle.contWidth, moving.pp.y / puzzle.contHeight, moving.pp.rot], false);
     }
     
-    change_savedata_datastorage(moving.pp.pieces[0].index, [moving.pp.x / puzzle.contWidth, moving.pp.y / puzzle.contHeight, moving.pp.rot], false);
 }
 
 document.addEventListener('keydown', function(event) {
@@ -2473,13 +2619,16 @@ document.addEventListener('keydown', function(event) {
 
 // debug :)
 document.addEventListener('keydown', function(event) {
-    if(!window.debug) return;
+    if(!window.debug || !puzzle || !puzzle.polyPieces) return;
     if (event.key === 'S' || event.key === 's' || event.key === 'H' || event.key === 'h') {
         const hint = event.key === 'H' || event.key === 'h';
         askForHint(!hint);
     }
     if(event.key === 'Q' || event.key === 'q'){
         window.goTo8888State = true;
+    }
+    if (event.key === 'D' || event.key === 'd') {
+        doRotateTrap();
     }
     if (event.key === 'A' || event.key === 'a') {
         const interval = () => {
@@ -2490,4 +2639,124 @@ document.addEventListener('keydown', function(event) {
         };
         interval();
     }
+});
+
+// drawer
+
+function withdraw(numToWithdraw){
+    if (puzzle && puzzle.polyPieces) {
+        // Get the number of pieces to withdraw from the select dropdown
+        let piecesToWithdraw = puzzle.polyPieces.filter(pp => !pp.hasMovedEver && pp.unlocked && !pp.withdrawn);
+
+        if (numToWithdraw !== "all") {
+            numToWithdraw = parseInt(numToWithdraw, 10);
+            // Shuffle and take only the requested number
+            piecesToWithdraw = piecesToWithdraw.sort(() => Math.random() - 0.5).slice(0, numToWithdraw);
+        }
+
+        piecesToWithdraw.forEach(pp => {
+            pp.moveTo(-10 * puzzle.contWidth, -10 * puzzle.contHeight);
+            pp.withdrawn = true;
+        });
+        // Update the value of the span with id "pcsStored" to count
+        const pcsStoredSpan = document.getElementById('pcsStored');
+        if (pcsStoredSpan) {
+            const am = puzzle.polyPieces.filter(pp => !pp.hasMovedEver && pp.unlocked && pp.withdrawn).length
+            pcsStoredSpan.textContent = am;
+            if (am > 0) {
+                // Hide the control button with id "control-btn3a"
+                const btn = document.getElementById('control-btn3a');
+                if (btn) {
+                    btn.style.display = "none";
+                }
+                pcsStoredSpan.style.color = "red";
+                pcsStoredSpan.style.fontWeight = "bold";
+            }
+        }
+        
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const btnWithdraw = document.getElementById('btnWithdraw');
+    const btnWithdrawAll = document.getElementById('btnWithdrawAll');
+    const btnDeposit = document.getElementById('btnDeposit');
+    btnWithdraw.addEventListener('click', function() {
+        let numToWithdraw = document.getElementById('numPieces').value;
+        withdraw(numToWithdraw);
+    });
+    btnWithdrawAll.addEventListener('click', function() {
+        withdraw("all");
+    });
+    btnDeposit.addEventListener('click', function() {
+        const select = document.getElementById('depositPosition');
+        const value = select.value;
+
+        if (puzzle && puzzle.polyPieces) {
+            let x = 0, y = 0;
+            switch (value) {
+                case "1": // Top-left corner
+                    x = 0.1;
+                    y = 0.1;
+                    break;
+                case "2": // Top-left area
+                    x = 0.3;
+                    y = 0.3;
+                    break;
+                case "3": // Top edge
+                    x = 0.7;
+                    y = 0.1;
+                    break;
+                case "4": // Top area
+                    x = 0.7;
+                    y = 0.3;
+                    break;
+                case "5": // Left edge
+                    x = 0.1;
+                    y = 0.7;
+                    break;
+                case "6": // Left area
+                    x = 0.3;
+                    y = 0.7;
+                    break;
+                case "7": // Anywhere
+                default:
+                    x = 0.7;
+                    y = 0.7;
+                    break;
+            }
+            // Get the number of pieces to deposit from the select dropdown
+            let numToDeposit = document.getElementById('numPieces').value;
+            let piecesToDeposit = puzzle.polyPieces.filter(pp => !pp.hasMovedEver && pp.unlocked && pp.withdrawn);
+
+            if (numToDeposit !== "all") {
+                numToDeposit = parseInt(numToDeposit, 10);
+                // Shuffle and take only the requested number
+                piecesToDeposit = piecesToDeposit.sort(() => Math.random() - 0.5).slice(0, numToDeposit);
+            }
+
+            piecesToDeposit.forEach(pp => {
+                pp.moveTo(Math.random() * x * puzzle.contWidth, Math.random() * y * puzzle.contHeight);
+                pp.withdrawn = false;
+            });
+
+            // Update the value of the span with id "pcsStored" to count
+            const pcsStoredSpan = document.getElementById('pcsStored');
+            if (pcsStoredSpan) {
+                let am = puzzle.polyPieces.filter(pp => !pp.hasMovedEver && pp.unlocked && pp.withdrawn).length
+                pcsStoredSpan.textContent = am;
+                
+                if (am == 0) {
+                    // Hide the control button with id "control-btn3a"
+                    const btn = document.getElementById('control-btn3a');
+                    if (btn) {
+                        btn.style.display = "block";
+                    }
+                    pcsStoredSpan.style.color = "black"
+                    pcsStoredSpan.style.fontWeight = "normal";
+                }
+            }
+        }
+    });
+    
 });
