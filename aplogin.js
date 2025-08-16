@@ -25,10 +25,6 @@ document.getElementById("solobutton2").addEventListener("click", () => {
     pressed_solo();
 });
 
-document.getElementById("optionsbutton").addEventListener("click", () => {
-    window.open('options.html', '_blank');
-});
-
 document.getElementById('name').addEventListener('keypress', function(event) {
     if (event.key === 'Enter') {
         event.preventDefault(); // Prevent the default form submission
@@ -236,15 +232,12 @@ function connectToServer(firsttime = true) {
         .catch((error) => {
             console.log("Failed to connect", error)
             let errorMessage = "Failed: " + error;
+
+            document.getElementById('error-label').innerText = errorMessage + "\n Common remedies: refresh room and check login info.";
             
-            document.getElementById('loginbutton').value = errorMessage;
-            document.getElementById('loginbutton').style.backgroundColor = "red";
-
-            document.getElementById('solobutton').value = "Common remedies: refresh room and check login info"
-            document.getElementById('solobutton').style.backgroundColor = "red";
-
-            document.getElementById('optionsbutton').value = "Please refresh this page to try again :)"
-            document.getElementById('optionsbutton').style.backgroundColor = "red";
+            document.getElementById('loginbutton').style.backgroundColor = "#4caf50";
+            document.getElementById('loginbutton').value = "Login & Connect again";
+            
         });
 
 
@@ -267,6 +260,9 @@ const connectedListener = (packet) => {
         window.fake_pieces_mimic = packet.slot_data.fake_pieces_mimic;
     }else{
         window.fake_pieces_mimic = [];
+    }
+    if(packet.slot_data.grid_type == 6){
+        window.pieceSides = 6;
     }
 
     let apworld = packet.slot_data.ap_world_version_2 ? packet.slot_data.ap_world_version_2 : packet.slot_data.ap_world_version;
@@ -311,6 +307,12 @@ const connectedListener = (packet) => {
             localStorage.setItem("referredTo063", true);
         }
     }
+    if(["0.7.0", "0.7.1", "0.7.2"].includes(apworld)){
+        if(!localStorage.getItem("referredTo072")){
+            alert("There is a newer apworld with hexagon puzzles; a brand new puzzle type! It's a yaml option. But this version still works fine too :3")
+            localStorage.setItem("referredTo072", true);
+        }
+    }
     
 
     console.log("This apworld version should work", packet.slot_data.ap_world_version, packet.slot_data.ap_world_version_2)
@@ -324,6 +326,9 @@ const connectedListener = (packet) => {
 
     if(packet.slot_data.total_size_of_image){
         window.downsize_to_fit = packet.slot_data.total_size_of_image / 100;
+        if(window.pieceSides == 6){
+            window.downsize_to_fit *= Math.min(packet.slot_data.nx / (packet.slot_data.nx + (1-Math.sqrt(3)/3) * 0.5), packet.slot_data.ny / (packet.slot_data.ny + 1));
+        }
     }
     if (packet.slot_data.enable_clues !== undefined) {
         window.show_clue = packet.slot_data.enable_clues === 1;
@@ -337,6 +342,7 @@ const connectedListener = (packet) => {
     }
     
     puzzlePieceOrder = packet.slot_data.piece_order;
+    console.log(puzzlePieceOrder);
 
     window.possible_merges = packet.slot_data.possible_merges;
     window.actual_possible_merges = packet.slot_data.actual_possible_merges;
@@ -479,13 +485,14 @@ function setImage(url){
 }
 
 const bouncedListener = (packet) => {
+    console.log("Bounced packet:", packet);
     if(packet){
         if (packet.data) {
             console.log(packet.data);
             if (typeof packet.data[0] === "number") {
                 window.move_piece_bounced(packet.data);
             }else{
-                gotRandomNumber(packet.data[1]);
+                gotRandomNumber(packet.data[0], packet.data[1]);
             }
         }
     }
@@ -508,7 +515,7 @@ function newItems(items, index) {
             var received_items = [];
             for (let i = lastindex - index; i < items.length; i++) {
                 const item = items[i]; // Get the current item
-                received_items.push(item.toString()); // Add the item name to the 'items' array
+                received_items.push([item.toString(), i, index]); // Add the item name to the 'items' array
             }
             openItems(received_items)
             lastindex = index + items.length;
@@ -522,22 +529,25 @@ function openItems(items){
     console.log(items)
     let itemUnlocked = false;
     for (let i = 0; i < items.length; i++) {
+        let firstIndex = items[i][2];
+        let indexItem = items[i][1];
+        let item = items[i][0];
         // Normalize "Puzzle Piece" to "1 Puzzle Piece"
-        if (items[i] === "Puzzle Piece") {
-            items[i] = "1 Puzzle Piece";
+        if (item === "Puzzle Piece") {
+            item = "1 Puzzle Piece";
         }
-        if (items[i] === "Rotate Trap") {
-            items[i] = "1 Rotate Trap";
+        if (item === "Rotate Trap") {
+            item = "1 Rotate Trap";
         }
-        if (items[i] === "Swap Trap") {
-            items[i] = "1 Swap Trap";
+        if (item === "Swap Trap") {
+            item = "1 Swap Trap";
         }
 
         // Handle plural and singular forms for Puzzle Piece, Fake Puzzle Piece, Rotate Trap, Swap Trap
         // Patterns: "{i} Puzzle Piece(s)", "{i} Fake Puzzle Piece(s)", "{i} Rotate Trap(s)", "{i} Swap Trap(s)"
-        let match = items[i].match(/^(\d+)\s+(Puzzle Piece|Fake Puzzle Piece|Rotate Trap|Swap Trap)s?$/);
+        let match = item.match(/^(\d+)\s+(Puzzle Piece|Fake Puzzle Piece|Rotate Trap|Swap Trap)s?$/);
         if (match) {
-            const count = parseInt(match[1], 10);
+            let count = parseInt(match[1], 10);
             const type = match[2];
             for (let n = 0; n < count; n++) {
                 if (type === "Puzzle Piece") {
@@ -552,9 +562,13 @@ function openItems(items){
                     window.unlockFakePiece();
                     itemUnlocked = true;
                 } else if (type === "Rotate Trap") {
-                    window.doRotateTrap();
+                    if(firstIndex > 0){
+                        doTrap("rotate" + firstIndex, "rotate", count);
+                    }
                 } else if (type === "Swap Trap") {
-                    window.doSwapTrap();
+                    if(firstIndex > 0){
+                        doTrap("swap" + firstIndex, "swap", count);
+                    }
                 }
             }
             continue;
@@ -753,56 +767,70 @@ function jsonListener(text, nodes) {
 
     var logTextarea = document.getElementById("log");
 
+    var isScrolledToBottom = logTextarea.scrollHeight - logTextarea.clientHeight <= logTextarea.scrollTop + 1;
     logTextarea.appendChild(messageElement);
     
     cleanLog();
-
-    logTextarea.scrollTop = logTextarea.scrollHeight - logTextarea.clientHeight;
+    if (isScrolledToBottom) {
+        logTextarea.scrollTop = logTextarea.scrollHeight - logTextarea.clientHeight;
+    }
+    
 }
 window.jsonListener = jsonListener;
 
-let lastrandomnumber = null;
-function deathListener(source, time, cause){
-    if (receive_death_link > 0) {
-        // Only continue this code once every 60 seconds
-        if (!window.lastDeathLinkTime || Date.now() - window.lastDeathLinkTime > 60000) {
-            window.lastDeathLinkTime = Date.now();
-            lastrandomnumber = Math.random() * 4;
-            console.log("my death link random number is", lastrandomnumber);
-            setTimeout(() => {
-                if (lastrandomnumber === null) {
-                    return;
-                }
-                sendBounceDeathLinkRandomNumber(lastrandomnumber);
-            }, lastrandomnumber * 1000);
-        } else {
-            console.log("Death link ignored: cooldown active.");
+let lastrandomnumbers = {};
+function doTrap(name, type, count = 1){
+    lastrandomnumbers[name] = Math.random() * 4;
+    console.log("my trap random number is", lastrandomnumbers[name]);
+    setTimeout(() => {
+        if (lastrandomnumbers[name] === null) {
+            return;
         }
+        sendBounceTrapRandomNumber(name, type, count, lastrandomnumbers[name]);
+    }, lastrandomnumbers[name] * 1000);
+}
+
+function deathListener(source, time, cause){
+    console.log("Received death link from", source, "at time", time, "due to", cause);
+    if (receive_death_link > 0) {
+        doTrap("death"+time, "death");
     }
 }
 
-function sendBounceDeathLinkRandomNumber(number){
-    client.bounce({ "slots": [window.slot] }, ["death", number ]);
+function sendBounceTrapRandomNumber(name, type, count, number){
+    client.bounce({ "slots": [window.slot] }, [name, number]);
     setTimeout(() => {
-        applyDeathLink();
+        applyTrap(name, type, count);
     }, 1000);
 }
 
-function applyDeathLink(){
-    if(lastrandomnumber !== null){
-        console.log("I sent a trap!")
-        for (let i = 0; i < receive_death_link; i++) {
-            window.doRotateTrap();
-            window.doSwapTrap();
+function applyTrap(name, type, count){
+    if(lastrandomnumbers[name] !== null){
+        if(type === "rotate"){
+            for (let i = 0; i < count; i++) {
+                window.doRotateTrap();
+            }
+        } else if(type === "swap"){
+            for (let i = 0; i < count; i++) {
+                window.doSwapTrap();
+            }
+        } else if(type === "death"){
+            for (let i = 0; i < receive_death_link; i++) {
+                window.doRotateTrap();
+                window.doSwapTrap();
+            }
         }
-        lastrandomnumber = null;
+        lastrandomnumbers[name] = null;
+    }else{
+        console.log("Trap", name, "was already applied or was not valid anymore.");
     }
 }
 
-function gotRandomNumber(number){
-    if(lastrandomnumber !== null){
-        if(number < lastrandomnumber){
-            lastrandomnumber = null;
+function gotRandomNumber(name, number){
+    console.log("Got random number for trap", name, number);
+    if(lastrandomnumbers[name] !== null){
+        if(number < lastrandomnumbers[name]){
+            lastrandomnumbers[name] = null;
         }
     }
 }
@@ -821,6 +849,11 @@ if (shapeParam) {
 
 if(getUrlParameter("go") == "LS"){
     pressed_login();
+}
+
+window.ignoreAspectRatio = false;
+if(getUrlParameter("ratio") == "ignore"){
+    window.ignoreAspectRatio = true;
 }
 
 function sendText(message){
