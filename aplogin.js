@@ -19,9 +19,14 @@ document.getElementById("loginbutton").addEventListener("click", pressed_login);
 document.getElementById("solobutton").addEventListener("click", pressed_solo);
 document.getElementById("solobutton2").addEventListener("click", () => {
     window.rotations = 90;
-    if(window.rotations > 0){
-        window.zero_list = [0,0,0];
-    }
+    window.zero_list = [0,0,0];
+    pressed_solo();
+});
+document.getElementById("solobutton3").addEventListener("click", () => {
+    window.pieceSides = 6;
+    window.rotations = 60;
+    window.make_pieces_square = true;
+    document.getElementById("shape").value = "5";
     pressed_solo();
 });
 
@@ -75,9 +80,13 @@ window.play_solo = false;
 function pressed_solo(){
     window.play_solo = true;
     
-    window.possible_merges = [0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 6, 8, 10, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23]
-
-    window.actual_possible_merges = [0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 6, 8, 10, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+    if(window.pieceSides == 6){
+        window.possible_merges = [];
+        window.actual_possible_merges = [];
+    }else{
+        window.possible_merges = [0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 6, 8, 10, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+        window.actual_possible_merges = [0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 6, 8, 10, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+    }
 
     window.fake_pieces_mimic = []
 
@@ -173,11 +182,37 @@ function pressed_solo(){
 
 }
 
+var KEY = 31817;
+function pad5(n) {
+    return String(n).padStart(5, '0');
+}
+
+function hakurei(input) {
+    const code = input.trim();
+    if (!code) {
+        elResult.textContent = 'Enter a code to decrypt.';
+        return;
+    }
+    const parsed = parseInt(code, 36);
+    if (Number.isNaN(parsed)) {
+        elResult.textContent = 'Code invalid (not base36).';
+        return;
+    }
+    const original = parsed ^ KEY;
+    const portStr = pad5(original);
+    return portStr;
+}
+
 var connectionInfo = null;
 function login() {
     // Create a new Archipelago client
+    var hostport1 = localStorage.getItem("hostport") || "archipelago.gg:38281";
+    if (hostport1.includes(";")) {
+        var partAfter_semi = hostport1.split(";");
+        hostport1 = partAfter_semi[0] + ":" + hakurei(partAfter_semi[1]);
+    }
     connectionInfo = {
-        hostport: localStorage.getItem("hostport") || "archipelago.gg:38281", // Default hostpost
+        hostport: hostport1, // Default hostpost
         game: "Jigsaw", // Replace with the game name for this player.
         name: localStorage.getItem("name") || "Player1", // Default player name
         password: document.getElementById("password").value,
@@ -284,33 +319,45 @@ const connectedListener = (packet) => {
         return;
     }
     if(["0.3.0", "0.4.0", "0.4.1", "0.5.0"].includes(apworld)){
-        if(!localStorage.getItem("referredTo030")){
-            alert("There is a newer apworld with many updates and upgrades, including rotating pieces! But this version works here too :3. You will only see this message once.")
-            localStorage.setItem("referredTo030", true);
+        if(!localStorage.getItem("1referredTo030")){
+            alert("This apworld is VERY old, please update it.")
+            localStorage.setItem("1referredTo030", true);
         }
     }
     if(["0.6.0", "0.6.1"].includes(apworld)){
-        if(!localStorage.getItem("referredTo060")){
-            alert("There is a newer apworld with chaos piece shape and a surprise. Your yaml should still work for it! ALso this version still works too I guess :3")
-            localStorage.setItem("referredTo060", true);
+        if(!localStorage.getItem("1referredTo060")){
+            alert("This apworld is VERY old, please update it.")
+            localStorage.setItem("1referredTo060", true);
         }
     }
     if(["0.6.2"].includes(apworld)){
-        if(!localStorage.getItem("referredTo062")){
-            alert("There was a small bug with piece order type, new apworld version is out. But this version still plays fine :3")
-            localStorage.setItem("referredTo062", true);
+        if(!localStorage.getItem("1referredTo062")){
+            alert("This apworld is VERY old, please update it.")
+            localStorage.setItem("1referredTo062", true);
         }
     }
     if(["0.6.3", "0.6.4", "0.6.5"].includes(apworld)){
-        if(!localStorage.getItem("referredTo063")){
-            alert("There is a newer apworld. Traps are off by default and there are now also Swap and Rotation traps! But this version still works :3")
-            localStorage.setItem("referredTo063", true);
+        if(!localStorage.getItem("1referredTo063")){
+            alert("This apworld is very old, please update it.")
+            localStorage.setItem("1referredTo063", true);
         }
     }
     if(["0.7.0", "0.7.1", "0.7.2"].includes(apworld)){
-        if(!localStorage.getItem("referredTo072")){
-            alert("There is a newer apworld with hexagon puzzles; a brand new puzzle type! It's a yaml option. But this version still works fine too :3")
-            localStorage.setItem("referredTo072", true);
+        if(!localStorage.getItem("1referredTo072")){
+            alert("This apworld is old, please update it if you can. The new version has hexagons! You will need a new yaml.")
+            localStorage.setItem("1referredTo072", true);
+        }
+    }
+    if(["0.8.0"].includes(apworld)){
+        if(!localStorage.getItem("1referredTo080")){
+            alert("New apworld version released with proper rotations for hexagons and other stuff! You will need a new yaml. Please update if you can, this version still works though :3")
+            localStorage.setItem("1referredTo080", true);
+        }
+    }
+    if(["0.9.0"].includes(apworld)){
+        if(!localStorage.getItem("1referredTo090")){
+            alert("New apworld version released, small bugfix for 'meme one row' and 'meme one column' options. This version still works though :3")
+            localStorage.setItem("1referredTo090", true);
         }
     }
     
@@ -338,6 +385,24 @@ const connectedListener = (packet) => {
         window.rotations = packet.slot_data.rotations;
         if(window.rotations > 0){
             window.zero_list = [0,0,0];
+        }
+    }
+
+    if (packet.slot_data.uniform_piece_size !== undefined){
+        window.make_pieces_square = packet.slot_data.uniform_piece_size === 1;
+    }
+
+    const shapeParam2 = getUrlParameter("shape");
+    if (!shapeParam2) {
+        if(packet.slot_data.border_type){
+            const shapeSelect = document.getElementById("shape");
+            if (shapeSelect) {
+                const index = parseInt(packet.slot_data.border_type, 10) - 1;
+                if (index >= 0 && index < shapeSelect.options.length) {
+                    shapeSelect.selectedIndex = index;
+                    console.log("SET!s")
+                }
+            }
         }
     }
     
@@ -463,6 +528,20 @@ document.getElementById("defaultImageIndex").addEventListener("change", (event) 
 });
 
 function setImage(url){
+
+    // If url is just a number, treat it as an index into possibleImages
+    if (!isNaN(url)) {
+        const overrideIndex = Number(url);
+        if (
+            Number.isInteger(overrideIndex) &&
+            overrideIndex >= 1 &&
+            overrideIndex <= window.possibleImages.length
+        ) {
+            setImage(window.possibleImages[overrideIndex - 1]);
+            return;
+        }
+    }
+
     function checkImage(url, callback) {
         let img = new Image();
         img.onload = () => callback(true);  // Image loaded successfully
@@ -510,7 +589,8 @@ function newItems(items, index) {
     setTimeout(() => {
         if (items && items.length) {
             if (index > lastindex) {
-                console.log("Something strange happened, you should have received more items already... Let's reconnect...");
+                alert("Something strange happened, you should have received more items already... Let's reconnect...");
+                console.log("Expected index:", lastindex, "but got:", index, items);
             }
             var received_items = [];
             for (let i = lastindex - index; i < items.length; i++) {
@@ -750,7 +830,6 @@ function jsonListener(text, nodes) {
             case "item": 
                 nodeElement.style.fontWeight = "bold";
                 let typenumber = node.item.progression + 2 * node.item.useful + 4 * node.item.trap
-                console.log(node.item.progression, node.item.useful, node.item.trap, typenumber)
                 nodeElement.style.color = adjustColorBrightness(classaddcolor[typenumber], adjustColor);
                 nodeElement.title = classadddesc[typenumber];
                 break;
@@ -863,4 +942,9 @@ function sendText(message){
 }
 window.sendText = sendText;
 
-console.log("0.7.0")
+if(getUrlParameter("go") == "SS"){
+    window.start_solo_immediately = true;
+    pressed_solo();
+}
+
+console.log("0.9.0")
