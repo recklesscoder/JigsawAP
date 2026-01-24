@@ -138,7 +138,7 @@ document.addEventListener('keydown', (e) => {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || (active && active.isContentEditable)) return;
 
     if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') restoreDiv1();
-    if (e.key === '2' || e.code === 'Digit2' || e.code === 'Numpad2') restoreDiv2();
+    if (e.key === '2' || e.code === 'Digit2' || e.code === 'Numpad2') if (!location.search.match(/[?&]nopreview/i)) restoreDiv2();
     if (e.key === '3' || e.code === 'Digit3' || e.code === 'Numpad3') restoreDiv3();
 });
 
