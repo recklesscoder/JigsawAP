@@ -2556,7 +2556,7 @@ let previewSurfaceManager = null;
 function ensurePreviewSurfaceManager() {
     if (!previewSurfaceManager && window.JigsawPreviewSurfaceManager) {
         previewSurfaceManager = new window.JigsawPreviewSurfaceManager({
-            getPuzzle: () => puzzle,
+            getPuzzle: location.search.match(/[?&]nopreview([?&=]|$)/i) ? () => null : () => puzzle,
             getRendererFacade: () => rendererFacade,
             getViewState: () => viewState,
             getApDimensions: () => ({ apnx, apny })

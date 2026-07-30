@@ -186,7 +186,9 @@ function pressed_solo(){
     document.getElementById("m6").innerText = apstatus;
 
     document.getElementById('taskbar1').style.display = "flex";
-    document.getElementById('taskbar2').style.display = "flex";
+    if (!location.search.match(/[?&]nopreview([?&=]|$)/i)) {
+        document.getElementById('taskbar2').style.display = "flex";
+    }
     document.getElementById('taskbar3').style.display = "flex";
     const tbf = document.getElementById('taskbarFullscreen');
     const tbv = document.getElementById('taskbarViewControls');
@@ -541,7 +543,9 @@ const connectedListener = (packet) => {
 
     
     document.getElementById('taskbar1').style.display = "flex";
-    document.getElementById('taskbar2').style.display = "flex";
+    if (!location.search.match(/[?&]nopreview([?&=]|$)/i)) {
+        document.getElementById('taskbar2').style.display = "flex";
+    }
     document.getElementById('taskbar3').style.display = "flex";
     const tf = document.getElementById('taskbarFullscreen');
     const tv = document.getElementById('taskbarViewControls');
